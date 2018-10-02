@@ -6,18 +6,13 @@ Created on Mon Oct  1 10:35:54 2018
 @author: inti.pedroso
 """
 
-from distributions import lnprob, lnlike
-from utils import get_mu_linear, exp_
 import pandas as pd
 import numpy as np
-
-
 import emcee
 import corner
+from distributions import lnprob, lnlike, get_mu_linear, exp_, get_observation_post
 from scipy.special import gammaln
-from utils import get_mu_linear, exp_
-import pandas as pd
-import numpy as np
+
 
 files = !ls /Users/inti.pedroso/DATA/ASE/phaser_gene/
 files
@@ -28,6 +23,7 @@ data.head()
 data2 = data[data["totalCount"] > 10]
 data2.shape
 
+this_data = data2.loc[:,["aCount","totalCount"]].values.astype(float)
 
 this_data = data2.loc[data2.bam == "SRR5125126",["aCount","totalCount"]].values.astype(float)
 this_data = this_data[this_data[:,0] > 10, :] 
@@ -47,26 +43,24 @@ pos = np.vstack([ np.random.rand(ndim) for i in range(nwalkers)])
 pos[:,:K] = pos[:,:K]*200 + 10
 
 sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=([means, this_data]), threads=1)
-pos, prob, state = sampler.run_mcmc(pos, 200, progress=True)
+pos, prob, state = sampler.run_mcmc(pos, 1000, progress=True)
     
 print("Mean acceptance fraction: {0:.3f}".format(np.mean(sampler.acceptance_fraction)))
 
-samples = sampler.chain[:, 100:, :].reshape((-1, ndim))
+samples = sampler.chain[:, 500:, :].reshape((-1, ndim))
 post_M  = samples.mean(0)[:K]
 l_like = lnlike(samples.mean(0), this_data, means, return_pi=True)
 post_pi = l_like['pi']
 
 for i, (mu,m) in enumerate(zip(means,post_M)):
     print mu*m, (1.0-mu)*m
-    plot_beta(x, mu*m, (1.0-mu)*m, w=2.5*post_pi[i], normalise=False)
+    plot_beta(mu*m, (1.0-mu)*m, w=2.5*post_pi[i], normalise=False)
 plt.hist(this_data[:,0]/this_data[:,1], normed=True, bins=50, color='lightgrey')
 
 _ = corner.corner(samples)
 
 
-M = np.ones(K)*10
-bnds = [(10, 500)]
-bnds = bnds*len(M)
-res = minimize(lnprob,x0=M, bounds=bnds, tol=1e-6)
+pars = np.array([means * post_M, (1.0 - means)*post_M]).T
 
+%time post_counts = get_observation_post(this_data[:50,:], pars, ncores=4)
 

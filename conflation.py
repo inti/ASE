@@ -122,3 +122,4 @@ def beta_conflation(pars=None, x_range=[1e-8,1.0-1e-8], x_n_points=500, initiali
         w_sum += w_value
 
     return accum_value
+
