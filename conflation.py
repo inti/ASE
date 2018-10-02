@@ -79,20 +79,26 @@ def get_beta_cdf(pars,x_range=[0,1], x_n_points=500, x_points=None, weights=None
     return np.exp(log_accum_value - logaddexp.reduce(log_accum_value))
 
 
-def beta_conflation(pars=None, x_range=[1e-8,1.0-1e-8], x_n_points=500, initializer=None, weights=None):
+def beta_conflation(pars=None, weights=None, x_range=[1e-8,1.0-1e-8], x_n_points=500, initializer=None):
     """
         Performs conflation on beta distributions following Hill (2011, https://arxiv.org/pdf/0808.1808.pdf) and 
         Hill and Miller (2011, http://dx.doi.org/10.1063/1.3593373)
         
         pars = parameters of the beta distributions list of list where each list provides the pair alpha beta: e.g. [[alpha_1,beta_1],[alpha_2,beta_2]]
+        weights = weights to combine the differet distributions. Internally will be normalised by dividing by max value as per Hill and Miller (2011)
         x_range = value range to consider the conflation list of to values [min, max]
         x_n_points= number of points to evalue on the x_range
         initializer = initial set of paramaters to consider 
-        weights = weights to combine the differet distributions. Internally will be normalised by dividing by max value as per Hill and Miller (2011)
         
         Return a list of two values [alpha, beta] corrsponding to the parameters of the combined distribution
         
     """
+    
+    # sometimes we want to pass a single argument to this function which is a tuple with (pars, weights)
+    # if that is the case upack before processing
+    if len(pars) == 2:
+        (pars, weights) = pars
+    
     x_points = np.linspace(x_range[0], x_range[1], x_n_points)
     
     it = iter(pars)

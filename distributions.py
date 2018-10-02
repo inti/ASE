@@ -6,13 +6,15 @@ Created on Mon Oct  1 10:22:37 2018
 @author: inti.pedroso
 """
 
+import numpy as np
+import schwimmbad
+
+
 from scipy.stats import pareto, gamma, beta
 from scipy.special import gammaln, expit
 from scipy import logaddexp
-
-import numpy as np
 from conflation import beta_conflation
-import schwimmbad
+
 
 
 def _log_beta_binomial_density(k,n,alpha,beta):
@@ -167,15 +169,13 @@ def get_prior_counts(K=3, center_prop=0.9):
     return pc
 
 
-    
 def get_observation_post( counts, prior_pars, weights=None, ncores=1,mpi=False):
     w = get_mixture_membership(counts, prior_pars)
-
-    def beta_conflation_wrap((counts,w), pars=prior_pars):
-        return beta_conflation(pars=pars + counts, weights=w)
-    
+    #def beta_conflation_wrap((counts,w), pars = prior_pars):
+    #    return beta_conflation(pars=pars + counts, weights=w, x_n_points=100)
+    print "Calculating posterior distribution for observed counts"
     pool = schwimmbad.choose_pool(mpi=mpi, processes=ncores)
-    back = pool.map(beta_conflation_wrap, zip(counts,w.T))
+    back = pool.map(beta_conflation, [ (local_c + prior_pars, local_w) for local_c, local_w in zip(counts[:5,:],w.T[:5,:]) ] )
     pool.close()
     return back
     
