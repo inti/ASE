@@ -101,7 +101,6 @@ def lnprob_CRP(x, means, local_data):
 def lnprior_CRP(x, local_pi, local_CRPpar):
     back = 0.0
     back += pareto.logpdf(x=x, b=1.5, scale=10).sum()
-    p#rint local_CRPpar, local_pi, beta.logpdf(local_pi,1,local_CRPpar)
     back += beta.logpdf(local_pi,1,local_CRPpar).sum()
     back += gamma.logpdf(local_CRPpar,4,3).sum()
     if np.isnan(back):

@@ -6,7 +6,7 @@ Created on Mon Oct  1 10:35:54 2018
 @author: inti.pedroso
 """
 
-from distributions import lnprob
+from distributions import lnprob, lnlike
 from utils import get_mu_linear, exp_
 import pandas as pd
 import numpy as np
