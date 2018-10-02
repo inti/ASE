@@ -168,14 +168,27 @@ def get_prior_counts(K=3, center_prop=0.9):
     pc[int(0.5*(K-1))] = 10
     return pc
 
-
-def get_observation_post( counts, prior_pars, weights=None, ncores=1,mpi=False):
-    w = get_mixture_membership(counts, prior_pars)
+from tqdm import tqdm
+import pandas as pd
+def get_observation_post( counts, prior_pars, weights=None, ncores=1,mpi=False, chunk=12):
+    w = get_mixture_membership(counts, prior_pars, log=False)
     #def beta_conflation_wrap((counts,w), pars = prior_pars):
     #    return beta_conflation(pars=pars + counts, weights=w, x_n_points=100)
     print "Calculating posterior distribution for observed counts"
     pool = schwimmbad.choose_pool(mpi=mpi, processes=ncores)
-    back = pool.map(beta_conflation, [ (local_c + prior_pars, local_w) for local_c, local_w in zip(counts[:5,:],w.T[:5,:]) ] )
+    acc = 0
+    total = counts.shape[0]
+    pbar = tqdm(total=total)
+    back = []
+    for i in xrange( total/chunk):
+        back.append( pool.map(beta_conflation, [ (local_c + prior_pars, local_w) for local_c, local_w in zip(counts[acc:acc+chunk,:],w.T) ] ) )
+        acc += chunk
+        pbar.update(chunk)
+    
+    back.append(pool.map(beta_conflation, [ (local_c + prior_pars, local_w) for local_c, local_w in zip(counts[acc:,:],w.T) ] ) )
+    pbar.update(total - acc)    
     pool.close()
+    back = pd.concat([ pd.DataFrame(df) for df in back]).values
+    
     return back
     

@@ -9,9 +9,7 @@ Created on Mon Oct  1 10:35:54 2018
 import pandas as pd
 import numpy as np
 import emcee
-import corner
-from distributions import lnprob, lnlike, get_mu_linear, exp_, get_observation_post
-from scipy.special import gammaln
+from distributions import lnprob, lnlike, get_mu_linear, get_observation_post
 
 import argparse
 
@@ -21,7 +19,7 @@ parser.add_argument('--burnin', type=int, default=None, help='Number of MCMC Bur
 parser.add_argument('--thin', type=int, default=2, help='Thin every number of MCMC samples')
 
 parser.add_argument('--input', type=str, nargs='+', default=None, help='Input files to consider')
-parser.add_argument('--output', type=str, nargs='+', default=None, help='Input files to consider')
+parser.add_argument('--output', type=str, default=None, help='Input files to consider')
 parser.add_argument('--min_allele_count', type=int, default=10, help='Min number of alternative allele count')
 parser.add_argument('--min_total_count', type=int, default=10, help='Min total count')
 
@@ -41,7 +39,8 @@ data = pd.concat([ pd.read_table( f) for f in args.input ])
 
 print "Read [ ", data.shape[0]," ] data points"
 
-count_data = data.loc[:,[args.a_column, args.b_column]].values.astype(float)
+data.loc[:,"tmp_total"] = data.loc[:,[args.a_column, args.b_column]].sum(1).values
+count_data = data.loc[:,[args.a_column, "tmp_total"]].values.astype(float)
 # filter by min counts
 count_data = count_data[count_data[:,0] >= args.min_allele_count, :] 
 count_data = count_data[count_data.sum(1) >= args.min_total_count, :] 
@@ -72,15 +71,25 @@ post_M  = samples.mean(0)[:K]
 l_like = lnlike(samples.mean(0), count_data, means, return_pi=True)
 post_pi = l_like['pi']
 
-#for i, (mu,m) in enumerate(zip(means,post_M)):
-#    print mu*m, (1.0-mu)*m
-#    plot_beta(mu*m, (1.0-mu)*m, w=2.5*post_pi[i], normalise=False)
-#plt.hist(this_data[:,0]/this_data[:,1], density=True, bins=50, color='lightgrey')
-
-#_ = corner.corner(samples)
-
-
 pars = np.array([means * post_M, (1.0 - means)*post_M]).T
 
-post_counts = get_observation_post(count_data, pars, ncores=args.n_cores)
+df_count_data = pd.DataFrame(count_data)
+df_count_data_unique = df_count_data.drop_duplicates(keep="first")
 
+
+post_counts = get_observation_post(df_count_data_unique.values, pars, ncores=args.n_cores, chunk=args.n_cores*5)
+
+
+df2 = pd.merge(df_count_data,
+         pd.DataFrame(np.hstack([ df_count_data_unique.values, post_counts ] )),
+         how="left",
+         sort=False)
+
+df2.columns = [args.a_column,"tmp_total","alpha_post","beta_post"]
+
+out = pd.merge(data,
+         df2,
+         how="left",
+         sort=False,
+         left_on=[args.a_column,"tmp_total"],
+         right_on=[args.a_column,"tmp_total"]).drop_duplicates()
