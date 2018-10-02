@@ -9,9 +9,11 @@ Created on Mon Oct  1 10:35:54 2018
 import pandas as pd
 import numpy as np
 import emcee
-from distributions import lnprob, lnlike, get_mu_linear, get_observation_post
-
 import argparse
+
+from distributions import lnprob, lnlike, get_mu_linear, get_observation_post
+from stats import prob_1_diff_2
+
 
 parser = argparse.ArgumentParser(description='Estimate Allelic Specific Expression probabilities')
 parser.add_argument('--n_iter', type=int, default=10, help='Number of MCMC iterations')
@@ -87,9 +89,18 @@ df2 = pd.merge(df_count_data,
 
 df2.columns = [args.a_column,"tmp_total","alpha_post","beta_post"]
 
+null_pars = pars[(K-1)/2,:]
+
+df2.loc[:,"pASE"] = df2.apply(lambda x: prob_1_diff_2(x['alpha_post'],x['beta_post'],null_pars[0],null_pars[1]),axis=1)
+
 out = pd.merge(data,
          df2,
          how="left",
          sort=False,
          left_on=[args.a_column,"tmp_total"],
          right_on=[args.a_column,"tmp_total"]).drop_duplicates()
+
+
+
+
+out.to_csv(args.output, sep="\t",index=False,header=True)
