@@ -75,7 +75,7 @@ post_pi = l_like['pi']
 
 pars = np.array([means * post_M, (1.0 - means)*post_M]).T
 
-df_count_data = pd.DataFrame(count_data)
+df_count_data = pd.DataFrame(data.loc[:,[args.a_column, "tmp_total"]].values.astype(float))  #pd.DataFrame(count_data)
 df_count_data_unique = df_count_data.drop_duplicates(keep="first")
 
 
