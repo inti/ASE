@@ -35,9 +35,9 @@ def get_mixture_membership(data, pars, log = True):
     return w
 
 
-def lnprob(x, means, local_data):
+def lnprob(x, means, local_data, count_tuple_frequency):
     #local_data = other_args[0]
-    llike = lnlike(x,local_data, means, return_pi = True)
+    llike = lnlike(x,local_data, means, count_frq = count_tuple_frequency, return_pi = True)
     lprior = lnprior(x, pi=llike['pi'])
     log_prob = llike['ll'] + lprior
     #print log_prob, x
