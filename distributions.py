@@ -35,9 +35,9 @@ def get_mixture_membership(data, pars, log = True):
     return w
 
 
-def lnprob(x, means, local_data):
+def lnprob(x, means, local_data, count_tuple_frequency):
     #local_data = other_args[0]
-    llike = lnlike(x,local_data, means, return_pi = True)
+    llike = lnlike(x,local_data, means, count_frq = count_tuple_frequency, return_pi = True)
     lprior = lnprior(x, pi=llike['pi'])
     log_prob = llike['ll'] + lprior
     #print log_prob, x
@@ -49,10 +49,12 @@ def lnprior(x, pi=None, local_CRPpar=10.0):
         back += beta.logpdf(pi,1,local_CRPpar).sum() 
     return back
 
-def lnlike(x,local_data, means, return_pi = False, return_logz = False):
+def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz = False):
     local_pars = np.array([means * x, (1.0 - means)*x]).T
-    ll = log_beta_binomial_loop(local_data, local_pars )     
+    ll = log_beta_binomial_loop(local_data, local_pars )
     log_z = ll - logaddexp.reduce(ll,axis=0)
+    if count_frq is not None:
+        log_z = log_z * count_frq
     pi_ = logaddexp.reduce(log_z,axis=1)
     pi = exp_(pi_ - logaddexp.reduce(pi_))
     back = {}
@@ -61,8 +63,11 @@ def lnlike(x,local_data, means, return_pi = False, return_logz = False):
     if return_pi:
         back['pi'] = pi
     if return_logz:
-        back['log_z'] = log_z 
-    back['ll'] = np.dot(ll.T,pi).sum()
+        back['log_z'] = log_z
+    if count_frq is not None:
+        back['ll'] = np.dot(np.multiply(ll,count_frq).T,pi).sum()
+    else:
+        back['ll'] = np.dot(ll.T,pi).sum()
     return back
 
 
