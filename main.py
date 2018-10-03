@@ -79,7 +79,11 @@ df_count_data = pd.DataFrame(count_data)
 df_count_data_unique = df_count_data.drop_duplicates(keep="first")
 
 
-post_counts = get_observation_post(df_count_data_unique.values, pars, ncores=args.n_cores, chunk=args.n_cores*5)
+post_counts = get_observation_post(np.vstack([ df_count_data_unique.loc[:,0].values ,  
+                                              df_count_data_unique.loc[:,1].values - df_count_data_unique.loc[:,0].values ]).T, 
+                                    pars, 
+                                    ncores=args.n_cores, 
+                                    chunk=args.n_cores*5)
 
 
 df2 = pd.merge(df_count_data,
