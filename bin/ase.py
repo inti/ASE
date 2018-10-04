@@ -10,9 +10,11 @@ import pandas as pd
 import numpy as np
 import emcee
 import argparse
+import logging
 
-from distributions import lnprob, lnlike, get_mu_linear, get_observation_post
-from stats import prob_1_diff_2
+
+from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post
+from ASE.stats import prob_1_diff_2
 
 
 parser = argparse.ArgumentParser(description='Estimate Allelic Specific Expression probabilities')
@@ -33,7 +35,7 @@ parser.add_argument('--id', type=str, default="bCount", help='Name of column wit
 
 parser.add_argument('--K', type=int, default=7, help='Number of mixture components')
 parser.add_argument('--n_cores', type=int, default=1, help='Number of mixture components')
-parser.add_argument('--not_compute_on_unique_counts', action='store_true', type=bool, default=False, help='SHould likelihood be computed over unique count pairs to speed up calculations? (Default: True)')
+parser.add_argument('--not_compute_on_unique_counts', action='store_false', default=True, help='Should likelihood be computed over unique count pairs to speed up calculations? (Default: True)')
 
 
 args = parser.parse_args()
