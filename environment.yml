@@ -1,0 +1,11 @@
+name: ase_test
+channels: 
+dependencies:
+    - python=2.7
+    - pip:
+      - "git+https://github.com/dfm/emcee.git@v3.0rc2"
+    - scipy
+    - pandas
+    - numpy
+    - cython
+    - accelerate
