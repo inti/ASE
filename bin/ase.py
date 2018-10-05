@@ -11,7 +11,7 @@ import numpy as np
 import emcee
 import argparse
 import logging
-
+import schwimmbad
 
 from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post
 from ASE.stats import prob_1_diff_2
@@ -117,13 +117,16 @@ logger.info("EMCEE parameters: nwalkers : [ %i ]", args.n_walkers)
 pos = np.vstack([ np.random.rand(args.K) for i in range(args.n_walkers)])
 pos[:,:args.K] = pos[:,:args.K]*200 + args.min_allele_count
 
+pool = schwimmbad.choose_pool(mpi=False, processes=args.n_cores)
+
 sampler = emcee.EnsembleSampler(args.n_walkers, 
                                 args.K, 
                                 lnprob, 
                                 args=([means, count_data, count_tuple_frequency]), 
-                                threads=args.n_cores)
+                                pool=pool)
 pos, prob, state = sampler.run_mcmc(pos, args.n_iter, progress=True)
-    
+pool.close()
+
 logger.info("EMCEE Mean acceptance fraction: [ %0.3f ]", np.mean(sampler.acceptance_fraction))
 
 samples = sampler.chain[:, args.burnin::args.thin, :].reshape((-1, args.K))
