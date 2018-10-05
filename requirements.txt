@@ -1,0 +1,8 @@
+-e git+https://github.com/dfm/emcee.git@v3.0rc2"
+tqdm
+schwimmbad
+scipy
+pandas
+numpy
+cython
+accelerate
