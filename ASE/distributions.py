@@ -8,13 +8,13 @@ Created on Mon Oct  1 10:22:37 2018
 
 import numpy as np
 import schwimmbad
+import pandas as pd
 
-
+from tqdm import tqdm
 from scipy.stats import pareto, gamma, beta
 from scipy.special import gammaln, expit
 from scipy import logaddexp
 from conflation import beta_conflation
-
 
 
 def _log_beta_binomial_density(k,n,alpha,beta):
@@ -36,11 +36,12 @@ def get_mixture_membership(data, pars, log = True):
 
 
 def lnprob(x, means, local_data, count_tuple_frequency):
+
     #local_data = other_args[0]
     llike = lnlike(x,local_data, means, count_frq = count_tuple_frequency, return_pi = True)
     lprior = lnprior(x, pi=llike['pi'])
     log_prob = llike['ll'] + lprior
-    #print log_prob, x
+    #print log_prob, xn
     return log_prob
 
 def lnprior(x, pi=None, local_CRPpar=10.0):
@@ -173,13 +174,9 @@ def get_prior_counts(K=3, center_prop=0.9):
     pc[int(0.5*(K-1))] = 10
     return pc
 
-from tqdm import tqdm
-import pandas as pd
+
 def get_observation_post( counts, prior_pars, weights=None, ncores=1,mpi=False, chunk=12):
     w = get_mixture_membership(counts, prior_pars, log=False)
-    #def beta_conflation_wrap((counts,w), pars = prior_pars):
-    #    return beta_conflation(pars=pars + counts, weights=w, x_n_points=100)
-    print "Calculating posterior distribution for observed counts"
     pool = schwimmbad.choose_pool(mpi=mpi, processes=ncores)
     acc = 0
     total = counts.shape[0]
