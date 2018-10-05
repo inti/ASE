@@ -184,10 +184,10 @@ logger.debug("pASE calculation data head \n%s\n", df2.head().to_string())
 logger.info("Merging results with original data")
 out = pd.merge(data,
          df2,
-         how="left",
+         how="right",
          sort=False,
          left_on=[args.a_column,"tmp_total"],
-         right_on=[args.a_column,"tmp_total"]).drop_duplicates()
+         right_on=[args.a_column,"tmp_total"])
 
 logger.debug("Output head \n%s\n", out.head().to_string())
 
