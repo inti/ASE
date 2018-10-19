@@ -183,13 +183,13 @@ logger.debug("pASE calculation data head \n%s\n", df2.head().to_string())
 
 logger.info("Merging results with original data")
 
-for c in ['alpha_post', 'beta_post', 'pASE']:
-    data.loc[:,c] = np.nan
+#for c in ['alpha_post', 'beta_post', 'pASE']:
+#    data.loc[:,c] = np.nan
     
-def add_post_values(key,grp, values):
-    data.loc[grp.groups[key],['alpha_post', 'beta_post', 'pASE']] = values
+#def add_post_values(key,grp, values):
+#    data.loc[grp.groups[key],['alpha_post', 'beta_post', 'pASE']] = values
     
-grp = data.groupby([args.a_column,"tmp_total"])
+#grp = data.groupby([args.a_column,"tmp_total"])
 #out = df2.apply(lambda x: add_post_values((x[args.a_column],x["tmp_total"]),
 #                                          grp,
 #                                          x[['alpha_post', 'beta_post', 'pASE']]),
@@ -201,7 +201,7 @@ out = pd.merge(data,
          sort=False,
          left_on=[args.a_column,"tmp_total"],
          right_on=[args.a_column,"tmp_total"],
-         validate="one_to_many")
+         validate="many_to_one")
 
 logger.debug("Output head \n%s\n", out.head().to_string())
 
