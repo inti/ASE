@@ -1,4 +1,7 @@
-tere# ASE
+
+[![Documentation Status](https://readthedocs.org/projects/bayase/badge/?version=latest)](https://bayase.readthedocs.io/en/latest/?badge=latest)
+
+# ASE
 
 Estimate probahility of ASE using Bayesian strategy with prior determined from the data itself using a 
 mixture of Beta-Binomial distributions. We assume the allelic imbalance can be modelled by K Beta-Binomial 
