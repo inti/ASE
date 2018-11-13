@@ -10,8 +10,6 @@ Welcome to ASE's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   all-about-me
-
 Indices and tables
 ==================
 
