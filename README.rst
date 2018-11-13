@@ -1,11 +1,10 @@
 Bayes ASE
 ===
 
-[![Documentation Status](https://readthedocs.org/projects/bayase/badge/?version=latest)](https://bayase.readthedocs.io/en/latest/?badge=latest)
-
-
 .. image:: http://img.shields.io/badge/license-MIT-blue.svg?style=flat
     :target: https://github.com/dfm/emcee/blob/master/LICENSE
+.. image:: https://readthedocs.org/projects/bayase/badge/?version=latest
+    :target: https://bayase.readthedocs.io/en/latest/?badge=latest
 
 # ASE
 
