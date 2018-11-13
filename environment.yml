@@ -1,0 +1,14 @@
+name: ase
+channels: 
+dependencies:
+    - python=2.7
+    - pip:
+      - "git+https://github.com/dfm/emcee.git@v3.0rc2"
+      - "schwimmbad"
+    - tqdm
+    - scipy
+    - pandas
+    - numpy
+    - cython
+    - accelerate
+    - sphinx
