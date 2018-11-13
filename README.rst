@@ -1,4 +1,5 @@
-
+Bayes ASE
+===
 [![Documentation Status](https://readthedocs.org/projects/bayase/badge/?version=latest)](https://bayase.readthedocs.io/en/latest/?badge=latest)
 
 # ASE
@@ -11,6 +12,13 @@ For each distribution we estimate its variance and prevalence on the data.
 We assume the cental distribution with mean 0.5 corresponde to the best representation of the null distribution 
 of no ASE. For each data point we obtain a posterior distribution of by combining the data with the mixture prior 
 and then compare this posterior with the null distribution to obtain a probality of not being null or probability of ASE. 
+
+
+Documentation
+-------------
+
+https://bayase.readthedocs.io/en/latest/
+
 
 # Install
 We find easy to get all dependecies using [coda](https://www.anaconda.com/download/) 
