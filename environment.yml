@@ -11,3 +11,4 @@ dependencies:
     - numpy
     - cython
     - accelerate
+    - sphinx
