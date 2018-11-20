@@ -3,6 +3,8 @@ library(VGAM)
 library(plyr)
 library(ggplot2)
 library(lmerTest)
+
+setwd("/Users/inti.pedroso/DATA/CodeDev/ASE")
 info = read.delim("SraRunTable.txt")
 
 data = read.delim("test_all_10K",header=T)
