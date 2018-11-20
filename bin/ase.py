@@ -12,6 +12,7 @@ import emcee
 import argparse
 import logging
 import schwimmbad
+import yaml
 
 from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post
 from ASE.stats import prob_1_diff_2
@@ -143,8 +144,30 @@ logger.info("Component %5s  Prevalence Mean  Alpha_post Beta_post")
 for i in xrange(args.K):
     logger.info("   '-> %i %0.3f %0.3f %0.3f %0.3f", i, post_pi[i], means[i],pars[i,0],pars[i,1])
 
+logger.info("Writing components parameters to [ %s ]", args.output + '.mixture_parameters.yaml')
+pars_dict = dict()
+pars_dict['components'] = dict()
+for i in xrange(pars.shape[0]):
+    pars_dict['components'][i] =  { 'alpha_post': float(pars[i,0]), 'beta_post': float(pars[i,1])}
 
-    
+pars_dict['run_info'] = {'n_iter': args.n_iter, 
+                         'n_walkers': args.n_walkers,
+                         'thin': args.thin,
+                         'burnin': args.burnin,
+                         'K': args.K,
+                         'components_means': [ float(i) for i in means ],
+                         'mean_acceptance_fraction': float(np.mean(sampler.acceptance_fraction)),
+                         'min_allele_count': args.min_allele_count,
+                         'min_total_count': args.min_total_count }
+
+file_model_pars = open(args.output + '.mixture_parameters.yaml','w') 
+yaml.dump(pars_dict, 
+          stream=file_model_pars,
+          Dumper=yaml.Dumper,
+          default_flow_style=False,
+          encoding=None)
+file_model_pars.close()
+
 df_count_data = pd.DataFrame(data.loc[:,[args.a_column, "tmp_total"]].values.astype(float))  #pd.DataFrame(count_data)
 if args.test_only:
     df_count_data = df_count_data.loc[:100,:]
@@ -206,9 +229,9 @@ out = pd.merge(data,
 logger.debug("Output head \n%s\n", out.head().to_string())
 
 
-logger.info("Writting output file to [ %s ]", args.output)
+logger.info("Writting output file to [ %s ]", args.output + 'ase.txt')
 
-out.to_csv(args.output, sep="\t",index=False,header=True)
+out.to_csv(args.output + 'ase.txt', sep="\t",index=False,header=True)
 
 logger.info("Done")
 
