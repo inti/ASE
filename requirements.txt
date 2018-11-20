@@ -6,3 +6,4 @@ pandas
 numpy
 cython
 accelerate
+pyyaml
