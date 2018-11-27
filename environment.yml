@@ -9,7 +9,5 @@ dependencies:
     - scipy
     - pandas
     - numpy
-    - cython
     - accelerate
-    - sphinx
     - pyyaml
