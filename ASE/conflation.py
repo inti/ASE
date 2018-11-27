@@ -11,7 +11,7 @@ from scipy import logaddexp
 import scipy.stats as ss
 import numpy as np
 
-from distributions import exp_        
+from utils import exp_        
 
 def beta_mom(mean=None,variance=None):
     """

@@ -15,6 +15,7 @@ from scipy.stats import pareto, gamma, beta
 from scipy.special import gammaln, expit
 from scipy import logaddexp
 from conflation import beta_conflation
+from utils import exp_
 
 def _log_beta_binomial_density(k,n,alpha,beta):
     uno = gammaln(n+1) - (gammaln(k+1) + gammaln(n-k+1))
@@ -124,7 +125,7 @@ def lnprior_CRP(x, local_pi, local_CRPpar):
     return back
 
 
-def exp_(x):
+def exp__(x):
     back = None
     try:
         back = np.exp(x)
