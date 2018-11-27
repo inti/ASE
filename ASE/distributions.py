@@ -176,7 +176,11 @@ def get_prior_counts(K=3, center_prop=0.9):
 
 
 def get_observation_post( counts, prior_pars, weights=None, ncores=1,mpi=False, chunk=12):
-    w = get_mixture_membership(counts, prior_pars, log=False)
+    local_K = prior_pars.shape[0]
+    if weights is None:
+        weights = np.ones((local_K,))
+    w = get_mixture_membership(counts, prior_pars, log=False) * weights.reshape((local_K,1))
+    w = w/w.sum(0)
     pool = schwimmbad.choose_pool(mpi=mpi, processes=ncores)
     acc = 0
     total = counts.shape[0]
