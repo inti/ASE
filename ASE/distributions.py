@@ -16,7 +16,6 @@ from scipy.special import gammaln, expit
 from scipy import logaddexp
 from conflation import beta_conflation
 
-
 def _log_beta_binomial_density(k,n,alpha,beta):
     uno = gammaln(n+1) - (gammaln(k+1) + gammaln(n-k+1))
     dos = gammaln(k+alpha) + gammaln(n-k+beta) - gammaln(n+alpha+beta)
@@ -175,7 +174,7 @@ def get_prior_counts(K=3, center_prop=0.9):
     return pc
 
 
-def get_observation_post( counts, prior_pars, weights=None, ncores=1,mpi=False, chunk=12):
+def get_observation_post_old( counts, prior_pars, weights=None, ncores=1,mpi=False, chunk=12):
     local_K = prior_pars.shape[0]
     if weights is None:
         weights = np.ones((local_K,))
@@ -197,4 +196,28 @@ def get_observation_post( counts, prior_pars, weights=None, ncores=1,mpi=False, 
     back = pd.concat([ pd.DataFrame(df) for df in back]).values
     
     return back
+
+
+
+def get_observation_post(counts, prior_pars, weights, x_n_points=100, x_range=[0+1e-4, 1-1e-4],ncores=1,mpi=False, chunk=12):    
+    # number of mixture components
+    local_K = prior_pars.shape[0]
+    # mixture memberships multiplied by the prior for each component
+    w = get_mixture_membership(counts, prior_pars, log=False) * weights.reshape((local_K,1))
+    w = w/w.sum(0)
+
+    pool = schwimmbad.choose_pool(mpi=mpi, processes=ncores)
+    acc = 0
+    total = counts.shape[0]
+    pbar = tqdm(total=total)
+    back = []
+    for i in xrange( total/chunk):
+        back.append( pool.map(beta_conflation, [ (local_c + prior_pars, local_w) for local_c, local_w in zip(counts[acc:acc+chunk,:],w.T) ] ) )
+        acc += chunk
+        pbar.update(chunk)
     
+    back.append(pool.map(beta_conflation, [ (local_c + prior_pars, local_w) for local_c, local_w in zip(counts[acc:,:],w.T) ] ) )
+    pbar.update(total - acc)    
+    pool.close()
+    back = pd.concat([ pd.DataFrame(df) for df in back]).values
+    return back
