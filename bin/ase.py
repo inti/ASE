@@ -24,6 +24,7 @@ parser.add_argument('--n_iter', type=int, default=10, help='Number of MCMC itera
 parser.add_argument('--burnin', type=int, default=None, help='Number of MCMC Burnin iterations')
 parser.add_argument('--thin', type=int, default=2, help='Thin every number of MCMC samples')
 parser.add_argument('--n_walkers', type=int, default=30, help='Number of EMCEE walkers')
+parser.add_argument('--integration_n_points', type=int, default=200, help='Number of points to use for integration for the conflation operations')
 
 parser.add_argument('--input', type=str, nargs='+', default=None, help='Input files to consider')
 parser.add_argument('--output', type=str, default=None, help='Input files to consider')
@@ -155,6 +156,7 @@ pars_dict['run_info'] = {'n_iter': args.n_iter,
                          'thin': args.thin,
                          'burnin': args.burnin,
                          'K': args.K,
+                         'integration_n_points': args.integration_n_points,
                          'components_means': [ float(i) for i in means ],
                          'mean_acceptance_fraction': float(np.mean(sampler.acceptance_fraction)),
                          'min_allele_count': args.min_allele_count,
@@ -178,9 +180,12 @@ logger.debug("Count Unique data head \n%s\n", df_count_data_unique.head().to_str
 
 
 logger.info("Calculating posterior distribution for observed counts")
-post_counts = get_observation_post(np.vstack([ df_count_data_unique.loc[:,0].values ,  
+
+post_counts = get_observation_post(counts = np.vstack([ df_count_data_unique.loc[:,0].values ,  
                                               df_count_data_unique.loc[:,1].values - df_count_data_unique.loc[:,0].values ]).T, 
-                                    pars, 
+                                    prior_pars= pars,
+                                    weights = post_pi,
+                                    x_n_points=args.integration_n_points,
                                     ncores=args.n_cores, 
                                     chunk=args.n_cores*5)
 
