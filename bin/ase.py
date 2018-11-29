@@ -182,7 +182,8 @@ logger.debug("Count Unique data head \n%s\n", df_count_data_unique.head().to_str
 logger.info("Calculating posterior distribution for observed counts")
 
 post_counts = get_observation_post(counts = np.vstack([ df_count_data_unique.loc[:,0].values ,  
-                                              df_count_data_unique.loc[:,1].values - df_count_data_unique.loc[:,0].values ]).T, 
+                                                        df_count_data_unique.loc[:,1].values - df_count_data_unique.loc[:,0].values 
+                                                       ]).T, 
                                     prior_pars= pars,
                                     weights = post_pi,
                                     x_n_points=args.integration_n_points,

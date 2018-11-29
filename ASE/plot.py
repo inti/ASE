@@ -33,7 +33,7 @@ def plot_beta(alpha=1, beta=1, n_points = 500, cdf=False, w = 1, color=None, nor
     If cdf=True cumulative distribution is plotted
     Passes any keyword arguments to matplotlib plot function
     '''
-    x = np.linspace(0, 1, n_points)
+    x = np.linspace(1e-8, 1-1e-8, n_points)
     if cdf:
         y = ss.beta.cdf(x, alpha, beta)
     else:

@@ -200,7 +200,7 @@ def get_observation_post_old( counts, prior_pars, weights=None, ncores=1,mpi=Fal
 
 
 
-def get_observation_post(counts, prior_pars, weights, x_n_points=100, x_range=[0+1e-4, 1-1e-4],ncores=1,mpi=False, chunk=12):    
+def get_observation_post(counts, prior_pars, weights=None, x_n_points=100, x_range=[0+1e-4, 1-1e-4],ncores=1,mpi=False, chunk=12):    
     # number of mixture components
     local_K = prior_pars.shape[0]
     
@@ -208,8 +208,8 @@ def get_observation_post(counts, prior_pars, weights, x_n_points=100, x_range=[0
         weights = np.ones((local_K,))
         
     # mixture memberships multiplied by the prior for each component
-    w = get_mixture_membership(counts, prior_pars, log=False) * weights.reshape((local_K,1))
-    w = w/w.sum(0)
+    w = get_mixture_membership(counts,prior_pars,log=True) + np.log(weights.reshape((local_K,1)))
+    w = exp_(w - logaddexp.reduce(w, axis=0))
 
     pool = schwimmbad.choose_pool(mpi=mpi, processes=ncores)
     acc = 0
