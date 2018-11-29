@@ -51,7 +51,12 @@ def lnprior(x, pi=None, local_CRPpar=10.0):
     return back
 
 def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz = False):
-    local_pars = np.array([means * x, (1.0 - means)*x]).T
+    
+    K =  1+(len(x) - 1)*2
+    local_pars = np.zeros(K)
+    local_pars[:4] = x
+    local_pars[4:] = x[:len(x)-1][::-1]
+    local_pars = np.array([means * local_pars, (1.0 - means)*local_pars]).T
     ll = log_beta_binomial_loop(local_data, local_pars )
     log_z = ll - logaddexp.reduce(ll,axis=0)
     if count_frq is not None:
