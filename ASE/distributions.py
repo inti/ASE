@@ -73,9 +73,7 @@ def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz
     back['log_z'] = None
     
     K =  1+(len(x) - 1)*2
-    local_pars = np.zeros(K)
-    local_pars[:4] = x
-    local_pars[4:] = x[:len(x)-1][::-1]
+    local_pars = unfold_symmetric_parameters(x)
     local_pars = np.array([means * local_pars, (1.0 - means)*local_pars]).T
     # check that no parameter is less that the min 
     if np.sum(local_pars < beta_par_min_val) > 0:
