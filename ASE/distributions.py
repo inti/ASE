@@ -34,6 +34,23 @@ def get_mixture_membership(data, pars, log = True):
         w = exp_(w)
     return w
 
+def unfold_symmetric_parameters(x):
+    """
+    input: numpy.array of shape (J,)
+    out: numpy.array of shape (1+(J - 1)*2)
+    
+    internally it construct a new array with first J elements equal to input
+    and last elements equal to input reverse. Cental element is the last element 
+    if the input array.
+    
+    It assumes input as of odd lenght
+    """
+    K =  1+(len(x) - 1)*2
+    local_pars = np.zeros(K)
+    local_pars[:len(x)] = x
+    local_pars[len(x):] = x[:len(x)-1][::-1]
+    return local_pars
+    
 
 def lnprob(x, means, local_data, count_tuple_frequency):
 
@@ -50,22 +67,27 @@ def lnprior(x, pi=None, local_CRPpar=10.0):
         back += beta.logpdf(pi,1,local_CRPpar).sum() 
     return back
 
-def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz = False):
+def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz = False, beta_par_min_val=1):
+    back = {}
+    back['pi'] = None
+    back['log_z'] = None
     
     K =  1+(len(x) - 1)*2
     local_pars = np.zeros(K)
     local_pars[:4] = x
     local_pars[4:] = x[:len(x)-1][::-1]
     local_pars = np.array([means * local_pars, (1.0 - means)*local_pars]).T
+    # check that no parameter is less that the min 
+    if np.sum(local_pars < beta_par_min_val) > 0:
+        back['ll'] = -np.inf
+        return back
     ll = log_beta_binomial_loop(local_data, local_pars )
     log_z = ll - logaddexp.reduce(ll,axis=0)
     if count_frq is not None:
         log_z = log_z * count_frq
     pi_ = logaddexp.reduce(log_z,axis=1)
     pi = exp_(pi_ - logaddexp.reduce(pi_))
-    back = {}
-    back['pi'] = None
-    back['log_z'] = None
+    
     if return_pi:
         back['pi'] = pi
     if return_logz:
