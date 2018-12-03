@@ -11,16 +11,20 @@ from scipy import logaddexp
 import numpy as np
 from utils import exp_
 
-def prob_2_beats_1_binary(alpha_1, beta_1, alpha_2, beta_2, invert_to_seep_up=True, pseucount=1):
-    if invert_to_seep_up and ( alpha_2 > alpha_1):
-        alpha_1, alpha_2 = (alpha_2,alpha_1)
-        beta_1, beta_2 = (beta_2,beta_1)
+def invert_order(x):
+    return np.array(x)[::-1]
 
+def prob_2_beats_1_binary(alpha_1, beta_1, alpha_2, beta_2, invert_to_seep_up=True, pseucount=1):
     alpha_1 += pseucount
     beta_1 += pseucount
     alpha_2 += pseucount
     beta_2 += pseucount        
     
+    if invert_to_seep_up:
+        if (( alpha_2 > alpha_1) and (alpha_1 > 1)) or ((alpha_2 < alpha_1) and (alpha_1 == 1)):
+            alpha_1, alpha_2 = invert_order([alpha_1,alpha_2])
+            beta_1,  beta_2  = invert_order([beta_1, beta_2])
+    print alpha_1, beta_1, alpha_2, beta_2
     total = list()
     for i in xrange(0,int(np.around(alpha_2-1))):
         total.append( lbeta(alpha_1+i,beta_1 + beta_2) - np.log(beta_2+i) - lbeta(1+i,beta_2) - lbeta(alpha_1,beta_1))
@@ -28,15 +32,17 @@ def prob_2_beats_1_binary(alpha_1, beta_1, alpha_2, beta_2, invert_to_seep_up=Tr
     return total
 
 def prob_2_beats_1_counts(alpha_1, beta_1, alpha_2, beta_2, invert_to_seep_up=True, pseucount=1):
-    if invert_to_seep_up and (alpha_2 < alpha_1):
-        alpha_1, alpha_2 = (alpha_2,alpha_1)
-        beta_1, beta_2 = (beta_2,beta_1)
-   
+
     alpha_1 += pseucount
     beta_1 += pseucount
     alpha_2 += pseucount
     beta_2 += pseucount
     
+    if invert_to_seep_up:
+        if ((alpha_2 < alpha_1) and (alpha_2 > 1)) or ((alpha_2 > alpha_1) and (alpha_1 == 1)):
+            alpha_1, alpha_2 = invert_order([alpha_1,alpha_2])
+            beta_1,  beta_2  = invert_order([beta_1, beta_2])
+
     total = list()
     for k in xrange(0,int(np.around(alpha_1-1))):
         total.append(k*np.log(beta_1) + alpha_2*np.log(beta_2) - (k+alpha_2)*np.log(beta_1 + beta_2) - np.log(k+alpha_2) - lbeta(k+1,alpha_2))
@@ -52,7 +58,7 @@ def prob_1_diff_2(alpha_1, beta_1, alpha_2, beta_2, p_type="counts",invert_to_se
         p = prob_2_beats_1_binary(alpha_1, beta_1, alpha_2, beta_2,invert_to_seep_up=invert_to_seep_up, pseucount=pseucount)
     
     else:
-        print "Only probability types for binary and counts are allowed"
+        print "Only probability types of [ binary ] and [ counts ] are allowed"
     return np.abs(p - (1-p))
 
 def prob_ASE_mixt_prior(alpha,beta,pars, null_pars=None, prior_w = None,invert_to_seep_up=True, pseucount=1):
