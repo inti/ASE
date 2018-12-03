@@ -19,7 +19,7 @@ from tqdm import tqdm
 tqdm.pandas(desc="")
 
 from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post, unfold_symmetric_parameters
-from ASE.stats import prob_1_diff_2, prob_ASE_mixt_prior
+from ASE.stats import prob_1_diff_2, probASE1, probASE2, probASE3
 
 
 
@@ -208,12 +208,7 @@ df_count_data_unique = pd.DataFrame( np.hstack([ df_count_data_unique.values, po
 logger.info("Calculating probability of ASE: method 1")
 null_pars = pars[(args.K-1)/2,:]
 logger.debug("   '-> Null paramerers for pASE calculation [ %s ] and [ %s ]", null_pars[0],null_pars[1])
-df_count_data_unique.loc[:,"pASE_1"] = df_count_data_unique.progress_apply(lambda x: prob_1_diff_2(x['alpha_post'],x['beta_post'],null_pars[0],null_pars[1],invert_to_seep_up=True, pseucount=1),axis=1)
-
-# correct cases where prob is inf or > 1
-idx_for_recalculation_pASE_1 = (df_count_data_unique.loc[:,"pASE_1"] == np.inf) | (df_count_data_unique.loc[:,"pASE_1"] > 1.0)
-df_count_data_unique.loc[idx_for_recalculation_pASE_1,"pASE_1"] = df_count_data_unique.loc[idx_for_recalculation_pASE_1].progress_apply(lambda x: prob_1_diff_2(x[args.a_column],x['tmp_total'] - x[args.a_column],null_pars[0],null_pars[1],invert_to_seep_up=True, pseucount=1),axis=1)
-
+df_count_data_unique.loc[:,"pASE_1"] = df_count_data_unique.progress_apply(lambda x: probASE1(alpha=x['alpha_post'], beta=x['beta_post'], alpha_null=null_pars[0], beta_null=null_pars[1], invert_to_seep_up=True, pseucount=1, tuple_count=[x[args.a_column],x["tmp_total"]-x[args.a_column]]),axis=1)
 
 
 logger.info("Calculating probability of ASE: method 2")
@@ -221,18 +216,12 @@ logger.info("Calculating probability of ASE: method 2")
 # get weight informing of the prob that each component is null 
 prior_w = 1.0 - np.array([ prob_1_diff_2(pars[i,0],pars[i,1],null_pars[0],null_pars[1]) for i in xrange(args.K)])
 
-df_count_data_unique.loc[:,"pASE_2"] = df_count_data_unique.progress_apply(lambda x: prob_ASE_mixt_prior(x['alpha_post'],x['beta_post'],pars, null_pars=null_pars, prior_w=prior_w,invert_to_seep_up=True, pseucount=1),axis=1)
-# correct cases where prob is inf or > 1
-idx_for_recalculation_pASE_2 = (df_count_data_unique.loc[:,"pASE_2"] == np.inf) | (df_count_data_unique.loc[:,"pASE_2"] > 1.0)
-df_count_data_unique.loc[idx_for_recalculation_pASE_2,"pASE_2"] = df_count_data_unique.loc[idx_for_recalculation_pASE_2].progress_apply(lambda x: prob_ASE_mixt_prior(x[args.a_column],
-                                                                                                                                                                      x['tmp_total'] - x[args.a_column],
-                                                                                                                                                                      pars, 
-                                                                                                                                                                      null_pars=null_pars, 
-                                                                                                                                                                      prior_w=prior_w,
-                                                                                                                                                                      invert_to_seep_up=True, 
-                                                                                                                                                                      pseucount=1),
-                                                                                                                                        axis=1)
+df_count_data_unique.loc[:,"pASE_2"] = df_count_data_unique.progress_apply(lambda x: probASE2(x['alpha_post'],x['beta_post'],pars, null_pars=null_pars, prior_w=prior_w,invert_to_seep_up=True, pseucount=1, tuple_count=[x[args.a_column],x["tmp_total"]-x[args.a_column]]),axis=1)
 
+
+# prob ASE 3
+logger.info("Calculating probability of ASE: method 3")
+df_count_data_unique.loc[:,"pASE_3"] = df_count_data_unique.progress_apply(lambda x: probASE3(alpha=x['alpha_post'],beta=x['beta_post'],pars=pars,weights=post_pi,p_null=0.5),axis=1)
 
 
 df_count_data_unique.loc[:,"log2_aFC_post"] = np.log2(df_count_data_unique.alpha_post.values/df_count_data_unique.beta_post.values)

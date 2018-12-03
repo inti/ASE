@@ -7,7 +7,7 @@ Created on Tue Oct  2 16:54:06 2018
 """
 
 from scipy.special import betaln as lbeta
-from scipy import logaddexp
+from scipy import logaddexp, stats as ss
 import numpy as np
 from utils import exp_
 
@@ -71,3 +71,40 @@ def prob_ASE_mixt_prior(alpha,beta,pars, null_pars=None, prior_w = None,invert_t
     prob_ASE = np.array([ prob_1_diff_2(alpha,beta,pars[i,0],pars[i,1],invert_to_seep_up=invert_to_seep_up, pseucount=pseucount) for i in xrange(local_K)])
     mixt_prob_ASE = np.dot(prob_ASE, prior_w)
     return mixt_prob_ASE
+
+
+def probASE1(alpha,beta,alpha_null,beta_null,invert_to_seep_up=True, pseucount=1, tuple_count=None):
+    
+    prob = prob_1_diff_2(alpha,beta,alpha_null,beta_null,invert_to_seep_up=invert_to_seep_up, pseucount=pseucount)
+    if tuple_count is not None:
+        if (prob == np.inf) | (prob > 1.0):
+            prob = prob_1_diff_2(tuple_count[0], 
+                                 tuple_count[1],
+                                 alpha_null,
+                                 beta_null,
+                                 invert_to_seep_up=invert_to_seep_up,
+                                 pseucount=pseucount)
+    return prob
+
+
+def probASE2(alpha,beta,pars, null_pars=None, prior_w = None,invert_to_seep_up=True, pseucount=1, tuple_count=None):
+    
+    prob = prob_ASE_mixt_prior(alpha=alpha,beta=beta,pars=pars, null_pars=null_pars, prior_w = prior_w,invert_to_seep_up=invert_to_seep_up, pseucount=pseucount)
+    if tuple_count is not None:
+        if (prob == np.inf) | (prob > 1.0):
+            prob = prob_ASE_mixt_prior(tuple_count[0],tuple_count[1],pars=pars, null_pars=null_pars, prior_w = prior_w,invert_to_seep_up=invert_to_seep_up, pseucount=pseucount)
+    return prob
+
+
+def probASE3(alpha,beta,pars,weights=None,p_null=0.5, return_odds=False):
+    
+    if weights is None:
+        weights = np.ones((pars.shape[0],))
+    
+    p_M_null = logaddexp.reduce([ ss.beta.logpdf(p_null, p[0], p[1]) for p in pars]  +  np.log(weights))
+    p_M_alternative = ss.beta.logpdf(p_null, alpha,beta)
+    odds = exp_( p_M_alternative - p_M_null)
+    if return_odds:
+        return odds
+    
+    return 1.0/(1.0 + odds)
