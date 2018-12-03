@@ -30,7 +30,6 @@ def prob_2_beats_1_counts(alpha_1, beta_1, alpha_2, beta_2, invert_to_seep_up=Tr
     total = list()
     for k in xrange(0,int(np.around(alpha_1-1))):
         total.append(k*np.log(beta_1) + alpha_2*np.log(beta_2) - (k+alpha_2)*np.log(beta_1 + beta_2) - np.log(k+alpha_2) - lbeta(k+1,alpha_2))
-    print total
     total = exp_(logaddexp.reduce(total))
     return total
 
