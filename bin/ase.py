@@ -173,7 +173,7 @@ yaml.dump(pars_dict,
           encoding=None)
 file_model_pars.close()
 
-df_count_data = pd.DataFrame(data.loc[:,[args.a_column, "tmp_total"]].values.astype(float))  #pd.DataFrame(count_data)
+df_count_data = pd.DataFrame(data.loc[:,[args.a_column, "tmp_total"]].values.astype(float), columns=[args.a_column, "tmp_total"])  #pd.DataFrame(count_data)
 if args.test_only:
     df_count_data = df_count_data.loc[:100,:]
     
@@ -184,8 +184,8 @@ logger.debug("Count Unique data head \n%s\n", df_count_data_unique.head().to_str
 
 logger.info("Calculating posterior distribution for observed counts")
 
-post_counts = get_observation_post(counts = np.vstack([ df_count_data_unique.loc[:,0].values ,  
-                                                        df_count_data_unique.loc[:,1].values - df_count_data_unique.loc[:,0].values 
+post_counts = get_observation_post(counts = np.vstack([ df_count_data_unique.values[:,0] ,  
+                                                        df_count_data_unique.values[:,1] - df_count_data_unique.values[:,0] 
                                                        ]).T, 
                                     prior_pars= pars,
                                     weights = post_pi,
@@ -196,11 +196,12 @@ post_counts = get_observation_post(counts = np.vstack([ df_count_data_unique.loc
 logger.debug("Posterior Count data head \n%s\n", pd.DataFrame(post_counts[:10,:]).head().to_string())
 
 df2 = pd.merge(df_count_data,
-         pd.DataFrame(np.hstack([ df_count_data_unique.values, post_counts ] )),
+         pd.DataFrame( np.hstack([ df_count_data_unique.values, post_counts ] ),
+                      columns=[args.a_column,"tmp_total","alpha_post","beta_post"]
+                      ),
          how="left", 
+         on = [args.a_column,"tmp_total"],
          sort=False)
-
-df2.columns = [args.a_column,"tmp_total","alpha_post","beta_post"]
 
 logger.debug("Merge data with posterior counts head \n%s\n", df2.head().to_string())
 
