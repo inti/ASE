@@ -14,8 +14,8 @@ import logging
 import schwimmbad
 import yaml
 
-from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post
-from ASE.stats import prob_1_diff_2
+from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post, unfold_symmetric_parameters
+from ASE.stats import prob_1_diff_2, prob_ASE_mixt_prior
 
 
 
@@ -210,7 +210,8 @@ null_pars = pars[(args.K-1)/2,:]
 
 logger.debug("Null paramerers for pASE calculation [ %s ] and [ %s ]", null_pars[0],null_pars[1])
 logger.info("Calculating probability of ASE")
-df2.loc[:,"pASE"] = df2.apply(lambda x: prob_1_diff_2(x['alpha_post'],x['beta_post'],null_pars[0],null_pars[1]),axis=1)
+df2.loc[:,"pASE_1"] = df2.apply(lambda x: prob_1_diff_2(x['alpha_post'],x['beta_post'],null_pars[0],null_pars[1]),axis=1)
+df2.loc[:,"pASE_2"] = df2.apply(lambda x: prob_ASE_mixt_prior(x['alpha_post'],x['beta_post'],pars),axis=1)
 
 logger.debug("pASE calculation data head \n%s\n", df2.head().to_string())
 
