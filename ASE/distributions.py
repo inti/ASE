@@ -67,13 +67,15 @@ def lnprior(x, pi=None, local_CRPpar=10.0):
         back += beta.logpdf(pi,1,local_CRPpar).sum() 
     return back
 
-def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz = False, beta_par_min_val=1):
+def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz = False, beta_par_min_val=1, unfold_symm_pars=True):
     back = {}
     back['pi'] = None
     back['log_z'] = None
     
     K =  1+(len(x) - 1)*2
-    local_pars = unfold_symmetric_parameters(x)
+    local_pars = x
+    if unfold_symm_pars:
+        local_pars = unfold_symmetric_parameters(x)
     local_pars = np.array([means * local_pars, (1.0 - means)*local_pars]).T
     # check that no parameter is less that the min 
     if np.sum(local_pars < beta_par_min_val) > 0:

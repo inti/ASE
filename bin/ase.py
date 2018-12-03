@@ -123,7 +123,7 @@ logger.info("   '-> N burnin : %i", args.burnin)
 logger.info("   '-> N thin : %i", args.thin)
 logger.info("EMCEE parameters: nwalkers : [ %i ]", args.n_walkers)
 
-n_parameters = (args.K-1)*0.5 + 1
+n_parameters = int((args.K-1)*0.5 + 1)
 pos = np.vstack([ np.random.rand(n_parameters) for i in range(args.n_walkers)])
 pos[:,:n_parameters] = pos[:,:n_parameters]*200 + args.min_allele_count
 
@@ -139,9 +139,9 @@ pool.close()
 
 logger.info("EMCEE Mean acceptance fraction: [ %0.3f ]", np.mean(sampler.acceptance_fraction))
 
-samples = sampler.chain[:, args.burnin::args.thin, :].reshape((-1, args.K))
+samples = sampler.chain[:, args.burnin::args.thin, :].reshape((-1, n_parameters))
 post_M  = unfold_symmetric_parameters(np.percentile(samples,'50',axis=0)) #samples.mean(0)[:args.K]
-l_like = lnlike(np.percentile(samples,'50',axis=0), count_data, means, return_pi=True)
+l_like = lnlike(post_M, count_data, means, return_pi=True, unfold_symm_pars=False)
 post_pi = l_like['pi']
 
 
