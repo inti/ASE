@@ -43,24 +43,25 @@ def prob_2_beats_1_counts(alpha_1, beta_1, alpha_2, beta_2, invert_to_seep_up=Tr
     total = exp_(logaddexp.reduce(total))
     return total
 
-def prob_1_diff_2(alpha_1, beta_1, alpha_2, beta_2, p_type="counts"):
+def prob_1_diff_2(alpha_1, beta_1, alpha_2, beta_2, p_type="counts",invert_to_seep_up=True, pseucount=1):
     p = np.nan
     
     if p_type == "counts":
-        p = prob_2_beats_1_counts(alpha_1, beta_1, alpha_2, beta_2)
+        p = prob_2_beats_1_counts(alpha_1, beta_1, alpha_2, beta_2,invert_to_seep_up=invert_to_seep_up, pseucount=pseucount)
     elif p_type == "binary":
-        p = prob_2_beats_1_binary(alpha_1, beta_1, alpha_2, beta_2)
+        p = prob_2_beats_1_binary(alpha_1, beta_1, alpha_2, beta_2,invert_to_seep_up=invert_to_seep_up, pseucount=pseucount)
     
     else:
         print "Only probability types for binary and counts are allowed"
     return np.abs(p - (1-p))
 
-def prob_ASE_mixt_prior(alpha,beta,pars, null_pars=None, prior_w = None):
+def prob_ASE_mixt_prior(alpha,beta,pars, null_pars=None, prior_w = None,invert_to_seep_up=True, pseucount=1):
     local_K = pars.shape[0]
     if null_pars is None:
         null_pars = pars[(local_K-1)/2,:]
     if prior_w is None:
-        prior_w = 1.0 - np.array([ prob_1_diff_2(pars[i,0],pars[i,1],null_pars[0],null_pars[1]) for i in xrange(local_K)])
-    prob_ASE = np.array([ prob_1_diff_2(alpha,beta,pars[i,0],pars[i,1]) for i in xrange(local_K)])
-    mixt_prob_ASE = np.dot(prob_ASE, prior_w/prior_w.sum())
+        prior_w = 1.0 - np.array([ prob_1_diff_2(pars[i,0],pars[i,1],null_pars[0],null_pars[1],invert_to_seep_up=invert_to_seep_up, pseucount=pseucount) for i in xrange(local_K)])
+    prior_w /= prior_w.sum()
+    prob_ASE = np.array([ prob_1_diff_2(alpha,beta,pars[i,0],pars[i,1],invert_to_seep_up=invert_to_seep_up, pseucount=pseucount) for i in xrange(local_K)])
+    mixt_prob_ASE = np.dot(prob_ASE, prior_w)
     return mixt_prob_ASE
