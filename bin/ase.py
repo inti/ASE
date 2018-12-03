@@ -14,8 +14,13 @@ import logging
 import schwimmbad
 import yaml
 
+# progress bar
+from tqdm import tqdm
+tqdm.pandas(desc="")
+
 from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post, unfold_symmetric_parameters
 from ASE.stats import prob_1_diff_2, prob_ASE_mixt_prior
+
 
 
 
@@ -195,10 +200,27 @@ post_counts = get_observation_post(counts = np.vstack([ df_count_data_unique.val
 
 logger.debug("Posterior Count data head \n%s\n", pd.DataFrame(post_counts[:10,:]).head().to_string())
 
-df2 = pd.merge(df_count_data,
-         pd.DataFrame( np.hstack([ df_count_data_unique.values, post_counts ] ),
+df_count_data_unique = pd.DataFrame( np.hstack([ df_count_data_unique.values, post_counts ] ),
                       columns=[args.a_column,"tmp_total","alpha_post","beta_post"]
-                      ),
+                      )
+
+
+logger.info("Calculating probability of ASE: method 1")
+null_pars = pars[(args.K-1)/2,:]
+logger.debug("   '-> Null paramerers for pASE calculation [ %s ] and [ %s ]", null_pars[0],null_pars[1])
+df_count_data_unique.loc[:,"pASE_1"] = df_count_data_unique.progress_apply(lambda x: prob_1_diff_2(x['alpha_post'],x['beta_post'],null_pars[0],null_pars[1]),axis=1)
+
+logger.info("Calculating probability of ASE: method 2")
+        
+prior_w = 1.0 - np.array([ prob_1_diff_2(pars[i,0],pars[i,1],null_pars[0],null_pars[1]) for i in xrange((args.K -1)/2 + 1)])
+
+df_count_data_unique.loc[:,"pASE_2"] = df_count_data_unique.progress_apply(lambda x: prob_ASE_mixt_prior(x['alpha_post'],x['beta_post'],pars, null_pars=null_pars, prior_w=prior_w),axis=1)
+
+df_count_data_unique.loc[:,"log2_aFC_post"] = np.log2(df_count_data_unique.alpha_post.values/df_count_data_unique.beta_post.values)
+logger.debug("pASE calculation data head \n%s\n", df_count_data_unique.head().to_string())
+
+df2 = pd.merge(df_count_data,
+         df_count_data_unique,
          how="left", 
          on = [args.a_column,"tmp_total"],
          sort=False)
@@ -206,14 +228,6 @@ df2 = pd.merge(df_count_data,
 logger.debug("Merge data with posterior counts head \n%s\n", df2.head().to_string())
 
 
-null_pars = pars[(args.K-1)/2,:]
-
-logger.debug("Null paramerers for pASE calculation [ %s ] and [ %s ]", null_pars[0],null_pars[1])
-logger.info("Calculating probability of ASE")
-df2.loc[:,"pASE_1"] = df2.apply(lambda x: prob_1_diff_2(x['alpha_post'],x['beta_post'],null_pars[0],null_pars[1]),axis=1)
-df2.loc[:,"pASE_2"] = df2.apply(lambda x: prob_ASE_mixt_prior(x['alpha_post'],x['beta_post'],pars),axis=1)
-
-logger.debug("pASE calculation data head \n%s\n", df2.head().to_string())
 
 logger.info("Merging results with original data")
 
