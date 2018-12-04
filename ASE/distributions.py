@@ -16,6 +16,7 @@ from scipy.special import gammaln, expit
 from scipy import logaddexp
 from conflation import beta_conflation
 from utils import exp_
+from stats import stick_breaking_eb
 
 def _log_beta_binomial_density(k,n,alpha,beta):
     uno = gammaln(n+1) - (gammaln(k+1) + gammaln(n-k+1))
@@ -51,11 +52,62 @@ def unfold_symmetric_parameters(x):
     local_pars[len(x):] = x[:len(x)-1][::-1]
     return local_pars
     
+def lnprob_full(x, means, local_data, count_tuple_frequency=None, beta_par_min_val=1, return_pi = False, return_logz = False, return_all_results=False, stick_breaking_prior_EB=True, theta_SB_EB=10.0, unfold_symm_pars=True):
+    ## Data Likelihood 
+    info = {}
+    info['pi'] = None
+    info['log_z'] = None
+    # assuming parameters are beig fitted as symmetric we need to unfold the given par values
+    local_pars = x
+    if unfold_symm_pars:
+        local_pars = unfold_symmetric_parameters(x)
+    local_pars = np.array([means * local_pars, (1.0 - means)*local_pars]).T
+    # check that no parameter is less that the min 
+    if np.sum(local_pars < beta_par_min_val) > 0:
+        info['ll'] = -np.inf
+        return info['ll']
+    ll = log_beta_binomial_loop(local_data, local_pars )
+
+    log_z = ll - logaddexp.reduce(ll,axis=0)
+    if count_tuple_frequency is not None:
+        log_z = log_z * count_tuple_frequency
+    pi_ = logaddexp.reduce(log_z,axis=1)
+    pi = exp_(pi_ - logaddexp.reduce(pi_))
+            
+    ## Prior likelihood 
+    ### prior for 
+    # obtain parameter for stick breaking prior by ML
+    theta_SB_EB = stick_breaking_eb(pi)
+        
+    pi_ = logaddexp.reduce(log_z,axis=1) # calculate the sum of marginal assignments to each component plus 1 
+    pi = exp_(np.logaddexp(0,pi_) - np.logaddexp(np.log(theta_SB_EB),logaddexp.reduce(pi_))) # divide marginals assignments sums by total plus pseudo counts from prior
+    
+    info['lprior'] = beta.logpdf(pi,1,theta_SB_EB).sum() + pareto.logpdf(x=unfold_symmetric_parameters(x), b=1.5, scale=beta_par_min_val).sum()
+    # store quantities of interest
+    if return_all_results:
+        return_pi = True
+        return_logz = True
+    if return_pi:
+        info['pi'] = pi
+    if return_logz:
+        info['log_z'] = log_z
+    if count_tuple_frequency is not None:
+        info['ll'] = np.dot(np.multiply(ll,count_tuple_frequency).T,pi).sum()
+    else:
+        info['ll'] = np.dot(ll.T,pi).sum()
+        
+    info['log_prob'] = info['ll'] + info['lprior']
+
+    if return_pi or return_logz or return_all_results:
+        return info
+    else:
+        return info['log_prob']
+
 
 def lnprob(x, means, local_data, count_tuple_frequency):
-
     #local_data = other_args[0]
     llike = lnlike(x,local_data, means, count_frq = count_tuple_frequency, return_pi = True)
+
     lprior = lnprior(x, pi=llike['pi'])
     log_prob = llike['ll'] + lprior
     #print log_prob, xn
@@ -72,7 +124,6 @@ def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz
     back['pi'] = None
     back['log_z'] = None
     
-    K =  1+(len(x) - 1)*2
     local_pars = x
     if unfold_symm_pars:
         local_pars = unfold_symmetric_parameters(x)
