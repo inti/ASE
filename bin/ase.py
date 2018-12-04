@@ -18,7 +18,7 @@ import yaml
 from tqdm import tqdm
 tqdm.pandas(desc="")
 
-from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post, unfold_symmetric_parameters
+from ASE.distributions import lnprob_full, get_mu_linear, get_observation_post, unfold_symmetric_parameters
 from ASE.stats import prob_1_diff_2, probASE1, probASE2, probASE3
 
 
@@ -131,7 +131,7 @@ pool = schwimmbad.choose_pool(mpi=False, processes=args.n_cores)
 
 sampler = emcee.EnsembleSampler(args.n_walkers, 
                                 n_parameters, 
-                                lnprob, 
+                                lnprob_full, 
                                 args=([means, count_data, count_tuple_frequency]), 
                                 pool=pool)
 pos, prob, state = sampler.run_mcmc(pos, args.n_iter, progress=True)
@@ -141,7 +141,7 @@ logger.info("EMCEE Mean acceptance fraction: [ %0.3f ]", np.mean(sampler.accepta
 
 samples = sampler.chain[:, args.burnin::args.thin, :].reshape((-1, n_parameters))
 post_M  = unfold_symmetric_parameters(np.percentile(samples,'50',axis=0)) #samples.mean(0)[:args.K]
-l_like = lnlike(post_M, count_data, means, return_pi=True, unfold_symm_pars=False)
+l_like = lnprob_full(np.percentile(samples,'50',axis=0),means, count_data, count_tuple_frequency, return_all_results=True)
 post_pi = l_like['pi']
 
 
