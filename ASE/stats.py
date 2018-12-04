@@ -123,4 +123,4 @@ def stick_breaking_eb(x,method='L-BFGS-B',bounds=[(1,None)], x0=None):
     if res.success:
         return res.x[0]
     else:
-        x0
+        return x0
