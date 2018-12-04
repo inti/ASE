@@ -6,7 +6,8 @@ Created on Tue Oct  2 16:54:06 2018
 @author: inti.pedroso
 """
 
-from scipy.special import betaln as lbeta
+from scipy.special import betaln as lbeta, gammaln
+from scipy.optimize import minimize
 from scipy import logaddexp, stats as ss
 import numpy as np
 from utils import exp_
@@ -108,3 +109,18 @@ def probASE3(alpha,beta,pars,weights=None,p_null=0.5, return_odds=False):
         return odds
     
     return 1.0/(1.0 + odds)
+
+
+def stick_breaking_eb(x,method='L-BFGS-B',bounds=[(1,None)], x0=None):
+    
+    def beta_logpdf(beta):
+        return -np.sum(np.log(1 - x)*(beta - 1.0) - (gammaln(1) + gammaln(beta) - gammaln(1 + beta)))
+    
+    if x0 is None:
+        # obtain mom
+        x0 = 1.0/np.mean(x) - 1.0
+    res = minimize(beta_logpdf, x0, method=method, bounds=bounds)
+    if res.success:
+        return res.x[0]
+    else:
+        x0
