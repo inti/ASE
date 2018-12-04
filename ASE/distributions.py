@@ -80,7 +80,7 @@ def lnprob_full(x, means, local_data, count_tuple_frequency=None, beta_par_min_v
     theta_SB_EB = stick_breaking_eb(pi)
         
     pi_ = logaddexp.reduce(log_z,axis=1) # calculate the sum of marginal assignments to each component plus 1 
-    pi = exp_(np.logaddexp(0,pi_) - np.logaddexp(np.log(theta_SB_EB),logaddexp.reduce(pi_))) # divide marginals assignments sums by total plus pseudo counts from prior
+    pi = exp_(np.logaddexp(0,pi_) - np.logaddexp(np.log(theta_SB_EB + 1.0),logaddexp.reduce(pi_))) # divide marginals assignments sums by total plus pseudo counts from prior
     
     info['lprior'] = beta.logpdf(pi,1,theta_SB_EB).sum() + pareto.logpdf(x=unfold_symmetric_parameters(x), b=1.5, scale=beta_par_min_val).sum()
     # store quantities of interest
