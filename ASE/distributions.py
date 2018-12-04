@@ -15,7 +15,7 @@ from scipy.stats import pareto, gamma, beta
 from scipy.special import gammaln, expit
 from scipy import logaddexp
 from conflation import beta_conflation
-
+from utils import exp_
 
 def _log_beta_binomial_density(k,n,alpha,beta):
     uno = gammaln(n+1) - (gammaln(k+1) + gammaln(n-k+1))
@@ -34,6 +34,23 @@ def get_mixture_membership(data, pars, log = True):
         w = exp_(w)
     return w
 
+def unfold_symmetric_parameters(x):
+    """
+    input: numpy.array of shape (J,)
+    out: numpy.array of shape (1+(J - 1)*2)
+    
+    internally it construct a new array with first J elements equal to input
+    and last elements equal to input reverse. Cental element is the last element 
+    if the input array.
+    
+    It assumes input as of odd lenght
+    """
+    K =  1+(len(x) - 1)*2
+    local_pars = np.zeros(K)
+    local_pars[:len(x)] = x
+    local_pars[len(x):] = x[:len(x)-1][::-1]
+    return local_pars
+    
 
 def lnprob(x, means, local_data, count_tuple_frequency):
 
@@ -50,17 +67,27 @@ def lnprior(x, pi=None, local_CRPpar=10.0):
         back += beta.logpdf(pi,1,local_CRPpar).sum() 
     return back
 
-def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz = False):
-    local_pars = np.array([means * x, (1.0 - means)*x]).T
+def lnlike(x,local_data, means, count_frq = None, return_pi = False, return_logz = False, beta_par_min_val=1, unfold_symm_pars=True):
+    back = {}
+    back['pi'] = None
+    back['log_z'] = None
+    
+    K =  1+(len(x) - 1)*2
+    local_pars = x
+    if unfold_symm_pars:
+        local_pars = unfold_symmetric_parameters(x)
+    local_pars = np.array([means * local_pars, (1.0 - means)*local_pars]).T
+    # check that no parameter is less that the min 
+    if np.sum(local_pars < beta_par_min_val) > 0:
+        back['ll'] = -np.inf
+        return back
     ll = log_beta_binomial_loop(local_data, local_pars )
     log_z = ll - logaddexp.reduce(ll,axis=0)
     if count_frq is not None:
         log_z = log_z * count_frq
     pi_ = logaddexp.reduce(log_z,axis=1)
     pi = exp_(pi_ - logaddexp.reduce(pi_))
-    back = {}
-    back['pi'] = None
-    back['log_z'] = None
+    
     if return_pi:
         back['pi'] = pi
     if return_logz:
@@ -125,7 +152,7 @@ def lnprior_CRP(x, local_pi, local_CRPpar):
     return back
 
 
-def exp_(x):
+def exp__(x):
     back = None
     try:
         back = np.exp(x)
@@ -175,8 +202,12 @@ def get_prior_counts(K=3, center_prop=0.9):
     return pc
 
 
-def get_observation_post( counts, prior_pars, weights=None, ncores=1,mpi=False, chunk=12):
-    w = get_mixture_membership(counts, prior_pars, log=False)
+def get_observation_post_old( counts, prior_pars, weights=None, ncores=1,mpi=False, chunk=12):
+    local_K = prior_pars.shape[0]
+    if weights is None:
+        weights = np.ones((local_K,))
+    w = get_mixture_membership(counts, prior_pars, log=False) * weights.reshape((local_K,1))
+    w = w/w.sum(0)
     pool = schwimmbad.choose_pool(mpi=mpi, processes=ncores)
     acc = 0
     total = counts.shape[0]
@@ -193,4 +224,32 @@ def get_observation_post( counts, prior_pars, weights=None, ncores=1,mpi=False, 
     back = pd.concat([ pd.DataFrame(df) for df in back]).values
     
     return back
+
+
+
+def get_observation_post(counts, prior_pars, weights=None, x_n_points=100, x_range=[0+1e-4, 1-1e-4],ncores=1,mpi=False, chunk=12):    
+    # number of mixture components
+    local_K = prior_pars.shape[0]
     
+    if weights is None:
+        weights = np.ones((local_K,))
+        
+    # mixture memberships multiplied by the prior for each component
+    w = get_mixture_membership(counts,prior_pars,log=True) + np.log(weights.reshape((local_K,1)))
+    w = exp_(w - logaddexp.reduce(w, axis=0))
+
+    pool = schwimmbad.choose_pool(mpi=mpi, processes=ncores)
+    acc = 0
+    total = counts.shape[0]
+    pbar = tqdm(total=total)
+    back = []
+    for i in xrange( total/chunk):
+        back.append( pool.map(beta_conflation, [ (local_c + prior_pars, local_w) for local_c, local_w in zip(counts[acc:acc+chunk,:],w.T) ] ) )
+        acc += chunk
+        pbar.update(chunk)
+    
+    back.append(pool.map(beta_conflation, [ (local_c + prior_pars, local_w) for local_c, local_w in zip(counts[acc:,:],w.T) ] ) )
+    pbar.update(total - acc)    
+    pool.close()
+    back = pd.concat([ pd.DataFrame(df) for df in back]).values
+    return back

@@ -14,8 +14,13 @@ import logging
 import schwimmbad
 import yaml
 
-from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post
-from ASE.stats import prob_1_diff_2
+# progress bar
+from tqdm import tqdm
+tqdm.pandas(desc="")
+
+from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post, unfold_symmetric_parameters
+from ASE.stats import prob_1_diff_2, probASE1, probASE2, probASE3
+
 
 
 
@@ -24,6 +29,9 @@ parser.add_argument('--n_iter', type=int, default=10, help='Number of MCMC itera
 parser.add_argument('--burnin', type=int, default=None, help='Number of MCMC Burnin iterations')
 parser.add_argument('--thin', type=int, default=2, help='Thin every number of MCMC samples')
 parser.add_argument('--n_walkers', type=int, default=30, help='Number of EMCEE walkers')
+parser.add_argument('--integration_n_points', type=int, default=200, help='Number of points to use for integration for the conflation operations')
+parser.add_argument('--prior_all_free', action='store_true', default=False, help='Model all parameters of mixture model. In particular referering to the total mass of the individual Beta-Binomial distributions')
+parser.add_argument('--prior_symmetric', action='store_true', default=False, help='Model parameters of mixture model as symmetric')
 
 parser.add_argument('--input', type=str, nargs='+', default=None, help='Input files to consider')
 parser.add_argument('--output', type=str, default=None, help='Input files to consider')
@@ -115,13 +123,14 @@ logger.info("   '-> N burnin : %i", args.burnin)
 logger.info("   '-> N thin : %i", args.thin)
 logger.info("EMCEE parameters: nwalkers : [ %i ]", args.n_walkers)
 
-pos = np.vstack([ np.random.rand(args.K) for i in range(args.n_walkers)])
-pos[:,:args.K] = pos[:,:args.K]*200 + args.min_allele_count
+n_parameters = int((args.K-1)*0.5 + 1)
+pos = np.vstack([ np.random.rand(n_parameters) for i in range(args.n_walkers)])
+pos[:,:n_parameters] = pos[:,:n_parameters]*200 + args.min_allele_count
 
 pool = schwimmbad.choose_pool(mpi=False, processes=args.n_cores)
 
 sampler = emcee.EnsembleSampler(args.n_walkers, 
-                                args.K, 
+                                n_parameters, 
                                 lnprob, 
                                 args=([means, count_data, count_tuple_frequency]), 
                                 pool=pool)
@@ -130,9 +139,9 @@ pool.close()
 
 logger.info("EMCEE Mean acceptance fraction: [ %0.3f ]", np.mean(sampler.acceptance_fraction))
 
-samples = sampler.chain[:, args.burnin::args.thin, :].reshape((-1, args.K))
-post_M  = samples.mean(0)[:args.K]
-l_like = lnlike(samples.mean(0), count_data, means, return_pi=True)
+samples = sampler.chain[:, args.burnin::args.thin, :].reshape((-1, n_parameters))
+post_M  = unfold_symmetric_parameters(np.percentile(samples,'50',axis=0)) #samples.mean(0)[:args.K]
+l_like = lnlike(post_M, count_data, means, return_pi=True, unfold_symm_pars=False)
 post_pi = l_like['pi']
 
 
@@ -155,6 +164,7 @@ pars_dict['run_info'] = {'n_iter': args.n_iter,
                          'thin': args.thin,
                          'burnin': args.burnin,
                          'K': args.K,
+                         'integration_n_points': args.integration_n_points,
                          'components_means': [ float(i) for i in means ],
                          'mean_acceptance_fraction': float(np.mean(sampler.acceptance_fraction)),
                          'min_allele_count': args.min_allele_count,
@@ -168,7 +178,7 @@ yaml.dump(pars_dict,
           encoding=None)
 file_model_pars.close()
 
-df_count_data = pd.DataFrame(data.loc[:,[args.a_column, "tmp_total"]].values.astype(float))  #pd.DataFrame(count_data)
+df_count_data = pd.DataFrame(data.loc[:,[args.a_column, "tmp_total"]].values.astype(float), columns=[args.a_column, "tmp_total"])  #pd.DataFrame(count_data)
 if args.test_only:
     df_count_data = df_count_data.loc[:100,:]
     
@@ -178,31 +188,54 @@ logger.debug("Count Unique data head \n%s\n", df_count_data_unique.head().to_str
 
 
 logger.info("Calculating posterior distribution for observed counts")
-post_counts = get_observation_post(np.vstack([ df_count_data_unique.loc[:,0].values ,  
-                                              df_count_data_unique.loc[:,1].values - df_count_data_unique.loc[:,0].values ]).T, 
-                                    pars, 
+
+post_counts = get_observation_post(counts = np.vstack([ df_count_data_unique.values[:,0] ,  
+                                                        df_count_data_unique.values[:,1] - df_count_data_unique.values[:,0] 
+                                                       ]).T, 
+                                    prior_pars= pars,
+                                    weights = post_pi,
+                                    x_n_points=args.integration_n_points,
                                     ncores=args.n_cores, 
                                     chunk=args.n_cores*5)
 
 logger.debug("Posterior Count data head \n%s\n", pd.DataFrame(post_counts[:10,:]).head().to_string())
 
-df2 = pd.merge(df_count_data,
-         pd.DataFrame(np.hstack([ df_count_data_unique.values, post_counts ] )),
-         how="left", 
-         sort=False)
+df_count_data_unique = pd.DataFrame( np.hstack([ df_count_data_unique.values, post_counts ] ),
+                      columns=[args.a_column,"tmp_total","alpha_post","beta_post"]
+                      )
 
-df2.columns = [args.a_column,"tmp_total","alpha_post","beta_post"]
+
+logger.info("Calculating probability of ASE: method 1")
+null_pars = pars[(args.K-1)/2,:]
+logger.debug("   '-> Null paramerers for pASE calculation [ %s ] and [ %s ]", null_pars[0],null_pars[1])
+df_count_data_unique.loc[:,"pASE_1"] = df_count_data_unique.progress_apply(lambda x: probASE1(alpha=x['alpha_post'], beta=x['beta_post'], alpha_null=null_pars[0], beta_null=null_pars[1], invert_to_seep_up=True, pseucount=1, tuple_count=[x[args.a_column],x["tmp_total"]-x[args.a_column]]),axis=1)
+
+
+logger.info("Calculating probability of ASE: method 2")
+        
+# get weight informing of the prob that each component is null 
+prior_w = 1.0 - np.array([ prob_1_diff_2(pars[i,0],pars[i,1],null_pars[0],null_pars[1]) for i in xrange(args.K)])
+
+df_count_data_unique.loc[:,"pASE_2"] = df_count_data_unique.progress_apply(lambda x: probASE2(x['alpha_post'],x['beta_post'],pars, null_pars=null_pars, prior_w=prior_w,invert_to_seep_up=True, pseucount=1, tuple_count=[x[args.a_column],x["tmp_total"]-x[args.a_column]]),axis=1)
+
+
+# prob ASE 3
+logger.info("Calculating probability of ASE: method 3")
+df_count_data_unique.loc[:,"pASE_3"] = df_count_data_unique.progress_apply(lambda x: probASE3(alpha=x['alpha_post'],beta=x['beta_post'],pars=pars,weights=post_pi,p_null=0.5),axis=1)
+
+
+df_count_data_unique.loc[:,"log2_aFC_post"] = np.log2(df_count_data_unique.alpha_post.values/df_count_data_unique.beta_post.values)
+logger.debug("pASE calculation data head \n%s\n", df_count_data_unique.head().to_string())
+
+df2 = pd.merge(df_count_data,
+         df_count_data_unique,
+         how="left", 
+         on = [args.a_column,"tmp_total"],
+         sort=False)
 
 logger.debug("Merge data with posterior counts head \n%s\n", df2.head().to_string())
 
 
-null_pars = pars[(args.K-1)/2,:]
-
-logger.debug("Null paramerers for pASE calculation [ %s ] and [ %s ]", null_pars[0],null_pars[1])
-logger.info("Calculating probability of ASE")
-df2.loc[:,"pASE"] = df2.apply(lambda x: prob_1_diff_2(x['alpha_post'],x['beta_post'],null_pars[0],null_pars[1]),axis=1)
-
-logger.debug("pASE calculation data head \n%s\n", df2.head().to_string())
 
 logger.info("Merging results with original data")
 

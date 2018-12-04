@@ -10,7 +10,9 @@ from scipy.optimize import minimize
 from scipy import logaddexp
 import scipy.stats as ss
 import numpy as np
-        
+
+from utils import exp_        
+
 def beta_mom(mean=None,variance=None):
     """
         Returns the parameters of a beta distributions using the method of moments
@@ -29,10 +31,16 @@ def weighted_avg_and_std(values, weights):
     variance = np.average((values-average)**2, weights=weights)  # Fast and numerically precise
     return (average, np.sqrt(variance))
 
-def beta_pars_from_cdf(cdf_vals = None, x_points=None,weights=None):
+def beta_pars_from_cdf(cdf_vals = None, x_points=None):
     """
         Infers the parameters of a beta distributions starting from the CDF by minimising the first and second moments of the distribution
     """
+    if x_points is None:
+        x_range=[0+1e-4,1-1e-4]
+        x_n_points=len(cdf_vals)
+        x_points = np.linspace(x_range[0], x_range[1], x_n_points)
+        
+
     m,s2 = weighted_avg_and_std(x_points,weights=cdf_vals)
     
     def beta_pdf_delta(beta_par,local_m=m,local_s2=s2, x_points = x_points, weights=None):
@@ -78,8 +86,33 @@ def get_beta_cdf(pars,x_range=[0,1], x_n_points=500, x_points=None, weights=None
         w_sum += w_value
     return np.exp(log_accum_value - logaddexp.reduce(log_accum_value))
 
+def beta_conflation(beta_pars, weights=None, x_points=None, x_range=[0+1e-4, 1-1e-4], x_n_points=100, return_log=False, return_beta_pars=True):
+    if x_points is None:
+        x_points = np.linspace(x_range[0], x_range[1], x_n_points)
+        
+    if len(beta_pars) == 2:
+        (beta_pars, weights) = beta_pars
+    # number of mixture components
+    local_K = beta_pars.shape[0]
+    if weights is None:
+        weights = np.ones((local_K,))
+    #obtain the logpdf for distribution
+    logcdf = np.vstack([ ss.beta.logpdf(x_points, alpha_par, beta_par) for alpha_par, beta_par in beta_pars])
+    
+    # weight each distribution
+    logcdf_plus_logw = logcdf + weights.reshape((local_K,1))
+    # combine the pdfs
+    log_conflated_pdf = np.sum(logcdf_plus_logw,0)
+    log_conflated_pdf -= logaddexp.reduce(log_conflated_pdf) # normalize it to sum 1
+    back = log_conflated_pdf
+    if return_log is False:
+        back = exp_(log_conflated_pdf)
+    if return_beta_pars is True:
+        back = beta_pars_from_cdf(exp_(log_conflated_pdf), x_points=x_points)
+    return back
+    
 
-def beta_conflation(pars=None, weights=None, x_range=[1e-8,1.0-1e-8], x_n_points=500, initializer=None):
+def beta_conflation_old(pars=None, weights=None, x_range=[1e-8,1.0-1e-8], x_n_points=500, initializer=None):
     """
         Performs conflation on beta distributions following Hill (2011, https://arxiv.org/pdf/0808.1808.pdf) and 
         Hill and Miller (2011, http://dx.doi.org/10.1063/1.3593373)
@@ -124,8 +157,10 @@ def beta_conflation(pars=None, weights=None, x_range=[1e-8,1.0-1e-8], x_n_points
     for next_pars in it:
         w_value = next(w_it)
         cdf_vals = get_beta_cdf([accum_value,next_pars], x_points=x_points, weights=[w_sum, w_value])
-        accum_value = beta_pars_from_cdf(cdf_vals, x_points=x_points,weights=weights)
+        accum_value = beta_pars_from_cdf(cdf_vals, x_points=x_points)
         w_sum += w_value
 
     return accum_value
+
+
 
