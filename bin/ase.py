@@ -218,7 +218,7 @@ out = pd.merge(data,
 logger.debug("Output head \n%s\n", out.head().to_string())
 
 
-logger.info("Writting output file to [ %s ]", args.output + 'ase.txt')
+logger.info("Writting output file to [ %s ]", args.output + '.ase.txt')
 
 out.to_csv(args.output + 'ase.txt', sep="\t",index=False,header=True)
 
