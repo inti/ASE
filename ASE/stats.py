@@ -5,11 +5,13 @@ Created on Tue Oct  2 16:54:06 2018
 
 @author: inti.pedroso
 """
+import numpy as np
+import logging
+logger = logging.getLogger()
 
 from scipy.special import betaln as lbeta, gammaln
 from scipy.optimize import minimize
 from scipy import logaddexp, stats as ss
-import numpy as np
 from utils import exp_
 
 def invert_order(x):
@@ -111,16 +113,30 @@ def probASE3(alpha,beta,pars,weights=None,p_null=0.5, return_odds=False):
     return 1.0/(1.0 + odds)
 
 
-def stick_breaking_eb(x,method='L-BFGS-B',bounds=[(1,None)], x0=None):
+def stick_breaking_eb(x,method='L-BFGS-B',bounds=[(1,None)], x0=None, gamma_hyperprior = None):
+    """
     
+    Hyper-prior for Stick Breaking parameter: array with two values to be used in sicpy.stats.gamma.pdf(x,gamma_hyperprior[0], scale=gamma_hyperprior[1]). See https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gamma.html
+    """
+    if x is None:
+        return np.nan
     def beta_logpdf(beta):
-        return -np.sum(np.log(1 - x)*(beta - 1.0) - (gammaln(1) + gammaln(beta) - gammaln(1 + beta)))
+        
+        back =  -np.sum(np.log(1 - x)*(beta - 1.0) - (gammaln(1) + gammaln(beta) - gammaln(1 + beta)))
+        logger.debug("data likelihood: [%s]", str(back))
+        if gamma_hyperprior is not None:
+            hyper_like = -ss.gamma.logpdf(beta,gamma_hyperprior[0], scale=gamma_hyperprior[1])
+            back += hyper_like
+            logger.debug("hyperprior likelihood: [%s]", str(hyper_like))
+        return back
     
     if x0 is None:
         # obtain mom
         x0 = 1.0/np.mean(x) - 1.0
     res = minimize(beta_logpdf, x0, method=method, bounds=bounds)
     if res.success:
+        logger.debug("Returning ML estimate: [%s]", str(res.x[0]))
         return res.x[0]
     else:
+        logger.debug("Returning MOM estimate: [%s]", str(x0))
         return x0

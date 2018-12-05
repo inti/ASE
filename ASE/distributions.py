@@ -52,7 +52,18 @@ def unfold_symmetric_parameters(x):
     local_pars[len(x):] = x[:len(x)-1][::-1]
     return local_pars
     
-def lnprob_full(x, means, local_data, count_tuple_frequency=None, beta_par_min_val=1, return_pi = False, return_logz = False, return_all_results=False, stick_breaking_prior_EB=True, theta_SB_EB=10.0, unfold_symm_pars=True):
+def lnprob_full(x, 
+                means, 
+                local_data, 
+                count_tuple_frequency=None, 
+                beta_par_min_val=1, 
+                return_pi = False, 
+                return_logz = False, 
+                return_all_results=False, 
+                stick_breaking_prior_EB=True, 
+                theta_SB_EB=10.0,
+                gamma_hyperprior = None,
+                unfold_symm_pars=True):
     ## Data Likelihood 
     info = {}
     info['pi'] = None
@@ -65,7 +76,10 @@ def lnprob_full(x, means, local_data, count_tuple_frequency=None, beta_par_min_v
     # check that no parameter is less that the min 
     if np.sum(local_pars < beta_par_min_val) > 0:
         info['ll'] = -np.inf
-        return info['ll']
+        if return_pi or return_logz or return_all_results:
+            return info
+        else:
+            return info['ll']
     ll = log_beta_binomial_loop(local_data, local_pars )
 
     log_z = ll - logaddexp.reduce(ll,axis=0)
@@ -77,7 +91,8 @@ def lnprob_full(x, means, local_data, count_tuple_frequency=None, beta_par_min_v
     ## Prior likelihood 
     ### prior for 
     # obtain parameter for stick breaking prior by ML
-    theta_SB_EB = stick_breaking_eb(pi)
+    if stick_breaking_prior_EB:
+        theta_SB_EB = stick_breaking_eb(pi,gamma_hyperprior=gamma_hyperprior)
         
     pi_ = logaddexp.reduce(log_z,axis=1) # calculate the sum of marginal assignments to each component plus 1 
     pi = exp_(np.logaddexp(0,pi_) - np.logaddexp(np.log(theta_SB_EB + 1.0),logaddexp.reduce(pi_))) # divide marginals assignments sums by total plus pseudo counts from prior
