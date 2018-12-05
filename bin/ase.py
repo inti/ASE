@@ -18,8 +18,8 @@ import yaml
 from tqdm import tqdm
 tqdm.pandas(desc="")
 
-from ASE.distributions import lnprob, lnlike, get_mu_linear, get_observation_post, unfold_symmetric_parameters
-from ASE.stats import prob_1_diff_2, probASE1, probASE2, probASE3
+from ASE.distributions import lnprob_full, get_mu_linear, get_observation_post, unfold_symmetric_parameters
+from ASE.stats import prob_1_diff_2, probASE1, probASE2, probASE3, stick_breaking_eb
 
 
 
@@ -32,6 +32,7 @@ parser.add_argument('--n_walkers', type=int, default=30, help='Number of EMCEE w
 parser.add_argument('--integration_n_points', type=int, default=200, help='Number of points to use for integration for the conflation operations')
 parser.add_argument('--prior_all_free', action='store_true', default=False, help='Model all parameters of mixture model. In particular referering to the total mass of the individual Beta-Binomial distributions')
 parser.add_argument('--prior_symmetric', action='store_true', default=False, help='Model parameters of mixture model as symmetric')
+parser.add_argument('--stick_breaking_hyperprior',  nargs='+', default=None, help='Paramer of Gamma Hyper-Prior for StickBreakign prior for mixture mixing parameters')
 
 parser.add_argument('--input', type=str, nargs='+', default=None, help='Input files to consider')
 parser.add_argument('--output', type=str, default=None, help='Input files to consider')
@@ -52,7 +53,9 @@ parser.add_argument('--debug', action='store_true', default=False, help='Pring d
 
 args = parser.parse_args()
 
-
+if args.stick_breaking_hyperprior is not None:
+    args.stick_breaking_hyperprior = [ float(i) for i in args.stick_breaking_hyperprior]
+    
 logger = logging.getLogger()
 handler = logging.StreamHandler()
 formatter = logging.Formatter(
@@ -131,8 +134,19 @@ pool = schwimmbad.choose_pool(mpi=False, processes=args.n_cores)
 
 sampler = emcee.EnsembleSampler(args.n_walkers, 
                                 n_parameters, 
-                                lnprob, 
-                                args=([means, count_data, count_tuple_frequency]), 
+                                lnprob_full, 
+                                args=([means, # means
+                                       count_data,  #local_data
+                                       count_tuple_frequency, # count_tuple_frequency
+                                       1.0, #
+                                       False, # return_pi
+                                       False, # return_logz
+                                       False, # return_all_results
+                                       True, # stick_breaking_prior_EB
+                                       10.0, # theta_SB_EB
+                                       args.stick_breaking_hyperprior, #gamma_hyperprior
+                                       True # unfold_symm_pars
+                                       ]), 
                                 pool=pool)
 pos, prob, state = sampler.run_mcmc(pos, args.n_iter, progress=True)
 pool.close()
@@ -140,9 +154,33 @@ pool.close()
 logger.info("EMCEE Mean acceptance fraction: [ %0.3f ]", np.mean(sampler.acceptance_fraction))
 
 samples = sampler.chain[:, args.burnin::args.thin, :].reshape((-1, n_parameters))
-post_M  = unfold_symmetric_parameters(np.percentile(samples,'50',axis=0)) #samples.mean(0)[:args.K]
-l_like = lnlike(post_M, count_data, means, return_pi=True, unfold_symm_pars=False)
-post_pi = l_like['pi']
+
+# Estimate posterior median of parameters
+post_pi_samples = list()
+stick_breaking_par_samples = list()
+post_M_samples = list()
+for sample in samples:
+    post_pi_i = lnprob_full(sample,means, # means
+                                       count_data,  #local_data
+                                       count_tuple_frequency, # count_tuple_frequency
+                                       1.0, #
+                                       True, # return_pi
+                                       False, # return_logz
+                                       False, # return_all_results
+                                       True, # stick_breaking_prior_EB
+                                       10.0, # theta_SB_EB
+                                       args.stick_breaking_hyperprior, #gamma_hyperprior
+                                       True)['pi']
+    if post_pi_i is not None:
+        post_M_samples.append(unfold_symmetric_parameters(sample))
+        post_pi_samples.append(post_pi_i)
+        stick_breaking_par_samples.append( stick_breaking_eb(post_pi_i,gamma_hyperprior = args.stick_breaking_hyperprior) )
+        
+post_pi_samples = np.vstack(post_pi_samples) # posterior for pi
+post_pi = np.median(post_pi_samples,0)
+post_M_samples = np.vstack(post_M_samples) # posterior for mixture components total mass
+post_M = np.median(post_M_samples,0)
+stick_breaking_par = np.mean(stick_breaking_par_samples) # estimate posterior mean for sitck-breaking parameter
 
 
 pars = np.array([means * post_M, (1.0 - means)*post_M]).T
@@ -155,9 +193,14 @@ for i in xrange(args.K):
 
 logger.info("Writing components parameters to [ %s ]", args.output + '.mixture_parameters.yaml')
 pars_dict = dict()
-pars_dict['components'] = dict()
+pars_dict['parameters'] = dict()
+pars_dict['parameters']['components'] = dict()
+
 for i in xrange(pars.shape[0]):
-    pars_dict['components'][i] =  { 'alpha_post': float(pars[i,0]), 'beta_post': float(pars[i,1])}
+    pars_dict['parameters']['components'][i] =  { 'alpha_post': float(pars[i,0]), 'beta_post': float(pars[i,1])}
+pars_dict['parameters']['stick_breaking_beta'] = float(stick_breaking_par)
+pars_dict['parameters']['mixture_pi'] = [ float(i) for i in post_pi ]
+
 
 pars_dict['run_info'] = {'n_iter': args.n_iter, 
                          'n_walkers': args.n_walkers,
@@ -168,7 +211,8 @@ pars_dict['run_info'] = {'n_iter': args.n_iter,
                          'components_means': [ float(i) for i in means ],
                          'mean_acceptance_fraction': float(np.mean(sampler.acceptance_fraction)),
                          'min_allele_count': args.min_allele_count,
-                         'min_total_count': args.min_total_count }
+                         'min_total_count': args.min_total_count,
+                         'stick_breaking_hyperprior': args.stick_breaking_hyperprior}
 
 file_model_pars = open(args.output + '.mixture_parameters.yaml','w') 
 yaml.dump(pars_dict, 
