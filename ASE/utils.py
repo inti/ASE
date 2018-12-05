@@ -1,4 +1,5 @@
 import numpy as np 
+from scipy.special import expit
 
 def exp_(x):
     back = None
@@ -9,3 +10,4 @@ def exp_(x):
     if back.any() == np.infty:
         back = expit(x)
     return back
+
