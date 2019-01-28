@@ -40,4 +40,3 @@ logger.info(data.head())
 data.to_csv(args.output,sep="\t",header=True,index=False)
 
 logger.info("\n\nDone\n\n")
-print("hello")
