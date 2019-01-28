@@ -9,7 +9,7 @@ parser.add_argument('--input', type=str, default=None, help='Input file to consi
 parser.add_argument('--output', type=str, default=None, help='Input files to consider')
 parser.add_argument('--scale', type=int, default=1, help='Multiply readth length by this')
 parser.add_argument('--p', type=float, default=0.5, help='Proportion for null')
-parser.add_argument('--seed', type=int, default=1, help='Seed for random number generator')
+parser.add_argument('--seed', type=int, default=123456789, help='Seed for random number generator')
 args = parser.parse_args()
 
 
