@@ -47,13 +47,15 @@ def plot_beta(alpha=1, beta=1, n_points = 500, cdf=False, w = 1, color=None, nor
 def plot_beta_mixture(pars,pi=None,n_points = 500, cdf=False, w = 1, color=None, normalise=True,components_means=None, plot_components = False,**kwargs):
     if pi is None:
         pi = np.ones((pars.shape[0],))
+    if color is None:
+        color = "black"
     cdf_matrix = np.vstack([ get_beta_cdf([p]) for p in pars])
     mixt_cdf = np.sum( cdf_matrix * pi.reshape((pars.shape[0],1)), 0)
     n_points = cdf_matrix.shape[1]
     x = np.linspace(1e-8, 1-1e-8, n_points)
     if normalise:
         mixt_cdf /= np.sum(mixt_cdf)
-    plt.plot(x,mixt_cdf*w,color='black')
+    plt.plot(x,mixt_cdf*w,color=color)
     
     if plot_components:
         for i in xrange(pars.shape[0]):
